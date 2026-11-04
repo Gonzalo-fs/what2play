@@ -22,7 +22,6 @@ class IndexGameRequest extends FormRequest
             'mode_ids' => ['sometimes', 'array'],
             'mode_ids.*' => ['integer', 'exists:modes,id'],
             'max_price' => ['sometimes', 'numeric', 'min:0'],
-            'page' => ['sometimes', 'integer', 'min:1'],
         ];
     }
 }

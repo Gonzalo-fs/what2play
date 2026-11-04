@@ -32,8 +32,8 @@ class DatabaseSeeder extends Seeder
             'max_price' => 30,
         ]);
 
-        $user->preferredGenres()->attach(Genre::inRandomOrder()->limit(2)->pluck('id'));
-        $user->preferredModes()->attach(Mode::where('name', 'Single player')->pluck('id'));
+        $user->genrePreferences()->attach(Genre::inRandomOrder()->limit(2)->pluck('id'));
+        $user->modePreferences()->attach(Mode::where('name', 'Single player')->pluck('id'));
         $user->library()->attach(Game::inRandomOrder()->limit(3)->pluck('id'), ['saved' => true]);
     }
 }

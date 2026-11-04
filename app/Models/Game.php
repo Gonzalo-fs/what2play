@@ -111,6 +111,56 @@ class Game extends Model
     }
 
     /**
+     * @param  Builder<Game>  $query
+     * @return Builder<Game>
+     */
+    public function scopeNotCompletedBy(Builder $query, User $user): Builder
+    {
+        return $query->whereDoesntHave('users', function (Builder $usersQuery) use ($user): void {
+            $usersQuery->where('users.id', $user->id)
+                ->where('game_user.completed', true);
+        });
+    }
+
+    /**
+     * Adds a relevance column (matched preferred genres + modes) and keeps only games with relevance > 0.
+     *
+     * @param  Builder<Game>  $query
+     * @param  array<int>  $genreIds
+     * @param  array<int>  $modeIds
+     * @return Builder<Game>
+     */
+    public function scopeWithPreferenceRelevance(Builder $query, array $genreIds, array $modeIds): Builder
+    {
+        $genreIds = array_values(array_unique(array_map('intval', $genreIds)));
+        $modeIds = array_values(array_unique(array_map('intval', $modeIds)));
+
+        $genreRelevance = $genreIds === []
+            ? '0'
+            : '(select count(*) from game_genre where game_genre.game_id = games.id and game_genre.genre_id in ('.$this->idList($genreIds).'))';
+
+        $modeRelevance = $modeIds === []
+            ? '0'
+            : '(select count(*) from game_mode where game_mode.game_id = games.id and game_mode.mode_id in ('.$this->idList($modeIds).'))';
+
+        $relevanceSql = "({$genreRelevance} + {$modeRelevance})";
+
+        return $query
+            ->select('games.*')
+            ->selectRaw("{$relevanceSql} as relevance")
+            ->whereRaw("{$relevanceSql} > 0")
+            ->orderByDesc('relevance');
+    }
+
+    /**
+     * @param  array<int>  $ids
+     */
+    private function idList(array $ids): string
+    {
+        return implode(',', $ids);
+    }
+
+    /**
      * @return BelongsTo<Developer, $this>
      */
     public function developer(): BelongsTo

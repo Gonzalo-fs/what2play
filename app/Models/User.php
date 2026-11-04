@@ -49,7 +49,7 @@ class User extends Authenticatable
     /**
      * @return BelongsToMany<Genre, $this>
      */
-    public function preferredGenres(): BelongsToMany
+    public function genrePreferences(): BelongsToMany
     {
         return $this->belongsToMany(Genre::class, 'user_genre_preferences');
     }
@@ -57,7 +57,7 @@ class User extends Authenticatable
     /**
      * @return BelongsToMany<Mode, $this>
      */
-    public function preferredModes(): BelongsToMany
+    public function modePreferences(): BelongsToMany
     {
         return $this->belongsToMany(Mode::class, 'user_mode_preferences');
     }
