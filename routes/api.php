@@ -3,7 +3,9 @@
 use App\Http\Controllers\Api\V1\Admin\AdminGameController;
 use App\Http\Controllers\Api\V1\AuthController;
 use App\Http\Controllers\Api\V1\GameController;
+use App\Http\Controllers\Api\V1\GenreController;
 use App\Http\Controllers\Api\V1\LibraryController;
+use App\Http\Controllers\Api\V1\ModeController;
 use App\Http\Controllers\Api\V1\PreferencesController;
 use App\Http\Controllers\Api\V1\RecommendationController;
 use App\Http\Controllers\Api\V1\UserController;
@@ -35,4 +37,6 @@ Route::prefix('v1')->group(function (): void {
 
     Route::get('games', [GameController::class, 'index']);
     Route::get('games/{game}', [GameController::class, 'show']);
+    Route::get('genres', [GenreController::class, 'index']);
+    Route::get('modes', [ModeController::class, 'index']);
 });
