@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use Database\Factories\GameFactory;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -42,6 +43,71 @@ class Game extends Model
             'game_length_minutes' => 'integer',
             'score' => 'decimal:1',
         ];
+    }
+
+    public function getRouteKeyName(): string
+    {
+        return 'slug';
+    }
+
+    /**
+     * @param  Builder<Game>  $query
+     * @param  array<int>|null  $ids
+     * @return Builder<Game>
+     */
+    public function scopeFilterByGenreIds(Builder $query, ?array $ids): Builder
+    {
+        if ($ids === null || $ids === []) {
+            return $query;
+        }
+
+        return $query->whereHas('genres', function (Builder $genresQuery) use ($ids): void {
+            $genresQuery->whereIn('genres.id', $ids);
+        });
+    }
+
+    /**
+     * @param  Builder<Game>  $query
+     * @param  array<int>|null  $ids
+     * @return Builder<Game>
+     */
+    public function scopeFilterByModeIds(Builder $query, ?array $ids): Builder
+    {
+        if ($ids === null || $ids === []) {
+            return $query;
+        }
+
+        return $query->whereHas('modes', function (Builder $modesQuery) use ($ids): void {
+            $modesQuery->whereIn('modes.id', $ids);
+        });
+    }
+
+    /**
+     * @param  Builder<Game>  $query
+     * @return Builder<Game>
+     */
+    public function scopeFilterByMaxPrice(Builder $query, mixed $maxPrice): Builder
+    {
+        if ($maxPrice === null || $maxPrice === '') {
+            return $query;
+        }
+
+        return $query->where(function (Builder $priceQuery) use ($maxPrice): void {
+            $priceQuery->whereNull('price')
+                ->orWhere('price', '<=', $maxPrice);
+        });
+    }
+
+    /**
+     * @param  Builder<Game>  $query
+     * @return Builder<Game>
+     */
+    public function scopeOrderByScoreDesc(Builder $query): Builder
+    {
+        return $query
+            ->orderByRaw('score IS NULL')
+            ->orderByDesc('score')
+            ->orderByDesc('id');
     }
 
     /**
