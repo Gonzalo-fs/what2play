@@ -37,8 +37,12 @@ class GameResource extends JsonResource
             'requirements_specs' => $this->requirements_specs,
             'game_length_minutes' => $this->game_length_minutes,
             'score' => $this->score,
-            'completed' => $this->whenPivotLoaded('game_user', fn (): bool => (bool) $this->pivot->completed),
-            'saved' => $this->whenPivotLoaded('game_user', fn (): bool => (bool) $this->pivot->saved),
+            'completed' => $this->whenPivotLoaded('game_user', function (): bool {
+                return (bool) $this->resource->getRelation('pivot')->getAttribute('completed');
+            }),
+            'saved' => $this->whenPivotLoaded('game_user', function (): bool {
+                return (bool) $this->resource->getRelation('pivot')->getAttribute('saved');
+            }),
             'developer' => DeveloperResource::make($this->whenLoaded('developer')),
             'genres' => GenreResource::collection($this->whenLoaded('genres')),
             'modes' => ModeResource::collection($this->whenLoaded('modes')),

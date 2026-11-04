@@ -3,10 +3,28 @@
 namespace App\Http\Requests\Admin\Concerns;
 
 use App\Models\Game;
+use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 
 trait GameWriteRules
 {
+    protected function prepareForValidation(): void
+    {
+        if (! $this->has('slug')) {
+            return;
+        }
+
+        $slug = $this->input('slug');
+
+        if (filled($slug)) {
+            $this->merge(['slug' => Str::slug((string) $slug)]);
+
+            return;
+        }
+
+        $this->merge(['slug' => null]);
+    }
+
     /**
      * @return array<string, mixed>
      */

@@ -47,3 +47,22 @@ it('validates login fields', function () {
         ->assertUnprocessable()
         ->assertJsonValidationErrors(['email', 'password']);
 });
+
+it('throttles login attempts', function () {
+    User::factory()->create([
+        'email' => 'throttle@example.com',
+        'password' => 'password',
+    ]);
+
+    for ($i = 0; $i < 5; $i++) {
+        $this->postJson('/api/v1/auth/login', [
+            'email' => 'throttle@example.com',
+            'password' => 'wrong-password',
+        ])->assertUnauthorized();
+    }
+
+    $this->postJson('/api/v1/auth/login', [
+        'email' => 'throttle@example.com',
+        'password' => 'wrong-password',
+    ])->assertStatus(429);
+});

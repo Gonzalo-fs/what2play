@@ -3,6 +3,7 @@
 use App\Models\Game;
 use App\Models\Genre;
 use App\Models\Mode;
+use Illuminate\Support\Facades\DB;
 
 it('lists games paginated and ordered by score descending', function () {
     $low = Game::factory()->create(['score' => 5.0, 'slug' => 'low-score']);
@@ -135,4 +136,23 @@ it('allows guests to list games', function () {
 
     $this->getJson('/api/v1/games')
         ->assertOk();
+});
+
+it('avoids n-plus-one queries when listing games', function () {
+    Game::factory()->count(5)->create()->each(function (Game $game): void {
+        $game->genres()->attach(Genre::factory()->create());
+        $game->modes()->attach(Mode::factory()->create());
+    });
+
+    DB::flushQueryLog();
+    DB::enableQueryLog();
+
+    $this->getJson('/api/v1/games')
+        ->assertOk()
+        ->assertJsonCount(5, 'data');
+
+    $queryCount = count(DB::getQueryLog());
+    DB::disableQueryLog();
+
+    expect($queryCount)->toBeLessThan(15);
 });

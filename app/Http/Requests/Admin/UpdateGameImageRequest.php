@@ -2,13 +2,17 @@
 
 namespace App\Http\Requests\Admin;
 
+use App\Models\Game;
 use Illuminate\Foundation\Http\FormRequest;
 
 class UpdateGameImageRequest extends FormRequest
 {
     public function authorize(): bool
     {
-        return true;
+        /** @var Game $game */
+        $game = $this->route('game');
+
+        return (bool) $this->user()?->can('update', $game);
     }
 
     /**

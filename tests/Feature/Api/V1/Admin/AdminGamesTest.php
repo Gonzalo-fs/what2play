@@ -16,7 +16,7 @@ it('rejects admin game endpoints for guests', function () {
     $game = Game::factory()->create();
 
     $this->postJson('/api/v1/admin/games', [])->assertUnauthorized();
-    $this->putJson('/api/v1/admin/games/'.$game->slug, [])->assertUnauthorized();
+    $this->patchJson('/api/v1/admin/games/'.$game->slug, [])->assertUnauthorized();
     $this->deleteJson('/api/v1/admin/games/'.$game->slug)->assertUnauthorized();
     $this->postJson('/api/v1/admin/games/'.$game->slug.'/image', [])->assertUnauthorized();
 });
@@ -39,7 +39,7 @@ it('forbids non-admin users from managing games', function () {
         ->assertForbidden();
 
     $this->actingAs($user, 'sanctum')
-        ->putJson('/api/v1/admin/games/'.$game->slug, ['title' => 'X'])
+        ->patchJson('/api/v1/admin/games/'.$game->slug, ['title' => 'X'])
         ->assertForbidden();
 
     $this->actingAs($user, 'sanctum')
@@ -50,6 +50,23 @@ it('forbids non-admin users from managing games', function () {
         ->post('/api/v1/admin/games/'.$game->slug.'/image', [
             'image' => UploadedFile::fake()->image('logo.jpg'),
         ], ['Accept' => 'application/json'])
+        ->assertForbidden();
+});
+
+it('returns 403 not 422 for non-admin with invalid body', function () {
+    $user = User::factory()->create();
+    $game = Game::factory()->create();
+
+    $this->actingAs($user, 'sanctum')
+        ->postJson('/api/v1/admin/games', [])
+        ->assertForbidden();
+
+    $this->actingAs($user, 'sanctum')
+        ->patchJson('/api/v1/admin/games/'.$game->slug, ['price' => 'not-a-number'])
+        ->assertForbidden();
+
+    $this->actingAs($user, 'sanctum')
+        ->postJson('/api/v1/admin/games/'.$game->slug.'/image', [])
         ->assertForbidden();
 });
 
@@ -83,6 +100,69 @@ it('creates a game with generated unique slug and synced relations', function ()
     ]);
 });
 
+it('rejects an explicit duplicate slug on store', function () {
+    $admin = User::factory()->admin()->create();
+    $developer = Developer::factory()->create();
+    Game::factory()->create(['slug' => 'taken']);
+
+    $this->actingAs($admin, 'sanctum')
+        ->postJson('/api/v1/admin/games', [
+            'title' => 'Another',
+            'slug' => 'taken',
+            'description' => 'Desc',
+            'developer_id' => $developer->id,
+            'genre_ids' => [],
+            'mode_ids' => [],
+        ])
+        ->assertUnprocessable()
+        ->assertJsonValidationErrors(['slug']);
+});
+
+it('rejects a slug that collides after normalization on store', function () {
+    $admin = User::factory()->admin()->create();
+    $developer = Developer::factory()->create();
+    Game::factory()->create(['slug' => 'my-game']);
+
+    $this->actingAs($admin, 'sanctum')
+        ->postJson('/api/v1/admin/games', [
+            'title' => 'Another Title',
+            'slug' => 'My Game',
+            'description' => 'Desc',
+            'developer_id' => $developer->id,
+            'genre_ids' => [],
+            'mode_ids' => [],
+        ])
+        ->assertUnprocessable()
+        ->assertJsonValidationErrors(['slug']);
+});
+
+it('accepts updating a game with its own slug in a different format', function () {
+    $admin = User::factory()->admin()->create();
+    $game = Game::factory()->create(['slug' => 'my-game', 'title' => 'My Game']);
+
+    $this->actingAs($admin, 'sanctum')
+        ->patchJson('/api/v1/admin/games/my-game', [
+            'slug' => 'My Game',
+        ])
+        ->assertOk()
+        ->assertJsonPath('data.slug', 'my-game');
+
+    expect($game->fresh()->slug)->toBe('my-game');
+});
+
+it('rejects an update slug that collides after normalization', function () {
+    $admin = User::factory()->admin()->create();
+    Game::factory()->create(['slug' => 'other-game']);
+    $game = Game::factory()->create(['slug' => 'my-game']);
+
+    $this->actingAs($admin, 'sanctum')
+        ->patchJson('/api/v1/admin/games/'.$game->slug, [
+            'slug' => 'Other Game',
+        ])
+        ->assertUnprocessable()
+        ->assertJsonValidationErrors(['slug']);
+});
+
 it('validates store payload', function () {
     $admin = User::factory()->admin()->create();
 
@@ -101,7 +181,7 @@ it('updates a game and syncs genres and modes', function () {
     $game->genres()->attach($oldGenre);
 
     $this->actingAs($admin, 'sanctum')
-        ->putJson('/api/v1/admin/games/old-slug', [
+        ->patchJson('/api/v1/admin/games/old-slug', [
             'title' => 'New Title',
             'slug' => 'old-slug',
             'genre_ids' => [$newGenre->id],
@@ -128,7 +208,7 @@ it('soft deletes a game and hides it from the public api', function () {
     $this->getJson('/api/v1/games/to-delete')->assertNotFound();
 
     $this->actingAs($admin, 'sanctum')
-        ->putJson('/api/v1/admin/games/to-delete', ['title' => 'Nope'])
+        ->patchJson('/api/v1/admin/games/to-delete', ['title' => 'Nope'])
         ->assertNotFound();
 });
 

@@ -18,16 +18,14 @@ class AdminGameController extends Controller
 {
     public function store(StoreGameRequest $request): JsonResponse
     {
-        $this->authorize('create', Game::class);
-
         $data = $request->safe()->except(['genre_ids', 'mode_ids']);
         $genreIds = $request->validated('genre_ids');
         $modeIds = $request->validated('mode_ids');
 
         $slug = $data['slug'] ?? null;
-        $data['slug'] = Game::generateUniqueSlug(
-            filled($slug) ? Str::slug((string) $slug) : Str::slug((string) $data['title'])
-        );
+        if (blank($slug)) {
+            $data['slug'] = Game::generateUniqueSlug(Str::slug((string) $data['title']));
+        }
 
         $game = DB::transaction(function () use ($data, $genreIds, $modeIds): Game {
             $game = Game::query()->create($data);
@@ -46,14 +44,8 @@ class AdminGameController extends Controller
 
     public function update(UpdateGameRequest $request, Game $game): GameResource
     {
-        $this->authorize('update', $game);
-
         $data = $request->safe()->except(['genre_ids', 'mode_ids']);
         $validated = $request->validated();
-
-        if (array_key_exists('slug', $data) && filled($data['slug'])) {
-            $data['slug'] = Game::generateUniqueSlug(Str::slug((string) $data['slug']), $game->id);
-        }
 
         DB::transaction(function () use ($game, $data, $validated): void {
             if ($data !== []) {
@@ -85,8 +77,6 @@ class AdminGameController extends Controller
 
     public function updateImage(UpdateGameImageRequest $request, Game $game): GameResource
     {
-        $this->authorize('uploadImage', $game);
-
         $path = $request->file('image')->store('games', 'public');
         $previous = $game->image_path;
 

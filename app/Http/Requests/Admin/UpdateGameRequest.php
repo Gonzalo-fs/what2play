@@ -12,7 +12,10 @@ class UpdateGameRequest extends FormRequest
 
     public function authorize(): bool
     {
-        return true;
+        /** @var Game $game */
+        $game = $this->route('game');
+
+        return (bool) $this->user()?->can('update', $game);
     }
 
     /**
