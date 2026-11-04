@@ -27,11 +27,8 @@ class RecommendationService
 
         $query = Game::query()
             ->with(['developer', 'genres', 'modes'])
-            ->notCompletedBy($user);
-
-        if ($user->max_price !== null) {
-            $query->filterByMaxPrice($user->max_price);
-        }
+            ->notCompletedBy($user)
+            ->filterByMaxPrice($user->max_price);
 
         if ($genreIds !== [] || $modeIds !== []) {
             $query->withPreferenceRelevance($genreIds, $modeIds);

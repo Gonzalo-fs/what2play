@@ -123,7 +123,7 @@ class Game extends Model
     }
 
     /**
-     * Adds a relevance column (matched preferred genres + modes) and keeps only games with relevance > 0.
+     * Adds match counts for preferred genres/modes, keeps only games with relevance > 0, orders by relevance.
      *
      * @param  Builder<Game>  $query
      * @param  array<int>  $genreIds
@@ -135,29 +135,59 @@ class Game extends Model
         $genreIds = array_values(array_unique(array_map('intval', $genreIds)));
         $modeIds = array_values(array_unique(array_map('intval', $modeIds)));
 
-        $genreRelevance = $genreIds === []
-            ? '0'
-            : '(select count(*) from game_genre where game_genre.game_id = games.id and game_genre.genre_id in ('.$this->idList($genreIds).'))';
-
-        $modeRelevance = $modeIds === []
-            ? '0'
-            : '(select count(*) from game_mode where game_mode.game_id = games.id and game_mode.mode_id in ('.$this->idList($modeIds).'))';
-
-        $relevanceSql = "({$genreRelevance} + {$modeRelevance})";
-
         return $query
-            ->select('games.*')
-            ->selectRaw("{$relevanceSql} as relevance")
-            ->whereRaw("{$relevanceSql} > 0")
-            ->orderByDesc('relevance');
+            ->withCount([
+                'genres as matching_genres_count' => function (Builder $genresQuery) use ($genreIds): void {
+                    if ($genreIds === []) {
+                        $genresQuery->whereRaw('0 = 1');
+
+                        return;
+                    }
+
+                    $genresQuery->whereIn('genres.id', $genreIds);
+                },
+                'modes as matching_modes_count' => function (Builder $modesQuery) use ($modeIds): void {
+                    if ($modeIds === []) {
+                        $modesQuery->whereRaw('0 = 1');
+
+                        return;
+                    }
+
+                    $modesQuery->whereIn('modes.id', $modeIds);
+                },
+            ])
+            ->where(function (Builder $relevanceQuery) use ($genreIds, $modeIds): void {
+                if ($genreIds !== []) {
+                    $relevanceQuery->orWhereHas('genres', function (Builder $genresQuery) use ($genreIds): void {
+                        $genresQuery->whereIn('genres.id', $genreIds);
+                    });
+                }
+
+                if ($modeIds !== []) {
+                    $relevanceQuery->orWhereHas('modes', function (Builder $modesQuery) use ($modeIds): void {
+                        $modesQuery->whereIn('modes.id', $modeIds);
+                    });
+                }
+            })
+            ->orderByRaw('(matching_genres_count + matching_modes_count) desc');
     }
 
     /**
-     * @param  array<int>  $ids
+     * @param  Builder<Game>  $query
+     * @return Builder<Game>
      */
-    private function idList(array $ids): string
+    public function scopeFilterByLibraryCompleted(Builder $query, bool $completed): Builder
     {
-        return implode(',', $ids);
+        return $query->where('game_user.completed', $completed);
+    }
+
+    /**
+     * @param  Builder<Game>  $query
+     * @return Builder<Game>
+     */
+    public function scopeFilterByLibrarySaved(Builder $query, bool $saved): Builder
+    {
+        return $query->where('game_user.saved', $saved);
     }
 
     /**
