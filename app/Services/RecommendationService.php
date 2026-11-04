@@ -9,14 +9,8 @@ use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 class RecommendationService
 {
     /**
-     * Recommend games for a user.
-     *
-     * Candidates are non-deleted games the user has not marked completed, optionally
-     * filtered by the user's max_price (null price = free, always allowed; no filter
-     * when max_price is null). Relevance is the count of the user's preferred genres
-     * plus preferred modes that the game matches. Only games with relevance > 0 are
-     * returned when preferences exist. With no preferences, results fall back to the
-     * catalog score ordering. Final order: relevance desc, then score desc (nulls last), then id desc.
+     * Games the user has not completed and can afford, ranked by how many of their
+     * preferred genres and modes they match, then by score.
      *
      * @return LengthAwarePaginator<int, Game>
      */

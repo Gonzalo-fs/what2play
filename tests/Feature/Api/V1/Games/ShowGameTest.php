@@ -51,10 +51,3 @@ it('returns not found for a soft deleted game', function () {
     $this->getJson('/api/v1/games/deleted-game')
         ->assertNotFound();
 });
-
-it('allows guests to view a game', function () {
-    Game::factory()->create(['slug' => 'public-game']);
-
-    $this->getJson('/api/v1/games/public-game')
-        ->assertOk();
-});

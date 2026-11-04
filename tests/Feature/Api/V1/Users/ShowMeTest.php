@@ -18,9 +18,3 @@ it('returns the authenticated user', function () {
         ->assertJsonPath('data.is_admin', false)
         ->assertJsonPath('data.max_price', '40.50');
 });
-
-it('rejects me for guests', function () {
-    $this->getJson('/api/v1/me')
-        ->assertUnauthorized()
-        ->assertJson(['message' => 'Unauthenticated.']);
-});

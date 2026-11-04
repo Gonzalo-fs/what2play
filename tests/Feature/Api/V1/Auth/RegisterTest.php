@@ -37,36 +37,19 @@ it('requires all registration fields', function () {
         ->assertJsonValidationErrors(['name', 'email', 'password']);
 });
 
-it('rejects an invalid email on register', function () {
-    $this->postJson('/api/v1/auth/register', [
+it('rejects invalid registration data', function (array $overrides, string $field) {
+    $this->postJson('/api/v1/auth/register', array_merge([
         'name' => 'Gonzalo',
-        'email' => 'not-an-email',
+        'email' => 'gonzalo@example.com',
         'password' => 'password',
         'password_confirmation' => 'password',
-    ])->assertUnprocessable()
-        ->assertJsonValidationErrors(['email']);
-});
-
-it('rejects a short password on register', function () {
-    $this->postJson('/api/v1/auth/register', [
-        'name' => 'Gonzalo',
-        'email' => 'gonzalo@example.com',
-        'password' => 'short',
-        'password_confirmation' => 'short',
-    ])->assertUnprocessable()
-        ->assertJsonValidationErrors(['password']);
-});
-
-it('rejects an unconfirmed password on register', function () {
-    $this->postJson('/api/v1/auth/register', [
-        'name' => 'Gonzalo',
-        'email' => 'gonzalo@example.com',
-        'password' => 'password',
-        'password_confirmation' => 'different',
-    ])->assertUnprocessable()
-        ->assertJsonValidationErrors(['password']);
-});
-
+    ], $overrides))->assertUnprocessable()
+        ->assertJsonValidationErrors([$field]);
+})->with([
+    'invalid email' => [['email' => 'not-an-email'], 'email'],
+    'short password' => [['password' => 'short', 'password_confirmation' => 'short'], 'password'],
+    'unconfirmed password' => [['password_confirmation' => 'different'], 'password'],
+]);
 it('rejects a duplicate email on register', function () {
     User::factory()->create(['email' => 'gonzalo@example.com']);
 

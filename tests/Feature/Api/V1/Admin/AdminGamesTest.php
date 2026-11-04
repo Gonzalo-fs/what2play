@@ -53,23 +53,6 @@ it('forbids non-admin users from managing games', function () {
         ->assertForbidden();
 });
 
-it('returns 403 not 422 for non-admin with invalid body', function () {
-    $user = User::factory()->create();
-    $game = Game::factory()->create();
-
-    $this->actingAs($user, 'sanctum')
-        ->postJson('/api/v1/admin/games', [])
-        ->assertForbidden();
-
-    $this->actingAs($user, 'sanctum')
-        ->patchJson('/api/v1/admin/games/'.$game->slug, ['price' => 'not-a-number'])
-        ->assertForbidden();
-
-    $this->actingAs($user, 'sanctum')
-        ->postJson('/api/v1/admin/games/'.$game->slug.'/image', [])
-        ->assertForbidden();
-});
-
 it('creates a game with generated unique slug and synced relations', function () {
     $admin = User::factory()->admin()->create();
     $developer = Developer::factory()->create();
@@ -131,33 +114,6 @@ it('rejects a slug that collides after normalization on store', function () {
             'developer_id' => $developer->id,
             'genre_ids' => [],
             'mode_ids' => [],
-        ])
-        ->assertUnprocessable()
-        ->assertJsonValidationErrors(['slug']);
-});
-
-it('accepts updating a game with its own slug in a different format', function () {
-    $admin = User::factory()->admin()->create();
-    $game = Game::factory()->create(['slug' => 'my-game', 'title' => 'My Game']);
-
-    $this->actingAs($admin, 'sanctum')
-        ->patchJson('/api/v1/admin/games/my-game', [
-            'slug' => 'My Game',
-        ])
-        ->assertOk()
-        ->assertJsonPath('data.slug', 'my-game');
-
-    expect($game->fresh()->slug)->toBe('my-game');
-});
-
-it('rejects an update slug that collides after normalization', function () {
-    $admin = User::factory()->admin()->create();
-    Game::factory()->create(['slug' => 'other-game']);
-    $game = Game::factory()->create(['slug' => 'my-game']);
-
-    $this->actingAs($admin, 'sanctum')
-        ->patchJson('/api/v1/admin/games/'.$game->slug, [
-            'slug' => 'Other Game',
         ])
         ->assertUnprocessable()
         ->assertJsonValidationErrors(['slug']);

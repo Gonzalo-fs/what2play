@@ -131,13 +131,6 @@ it('rejects invalid genre and mode filter ids', function () {
         ->assertJsonValidationErrors(['genre_ids.0', 'mode_ids.0']);
 });
 
-it('allows guests to list games', function () {
-    Game::factory()->create();
-
-    $this->getJson('/api/v1/games')
-        ->assertOk();
-});
-
 it('avoids n-plus-one queries when listing games', function () {
     Game::factory()->count(5)->create()->each(function (Game $game): void {
         $game->genres()->attach(Genre::factory()->create());

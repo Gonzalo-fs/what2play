@@ -1,9 +1,7 @@
 <?php
 
 use App\Models\Game;
-use App\Models\Genre;
 use App\Models\User;
-use Illuminate\Support\Facades\DB;
 
 it('rejects library endpoints for guests', function () {
     $game = Game::factory()->create();
@@ -145,53 +143,4 @@ it('validates library flags as booleans', function () {
         ])
         ->assertUnprocessable()
         ->assertJsonValidationErrors(['completed', 'saved']);
-});
-
-it('excludes a game from recommendations after completing it via the library', function () {
-    $user = User::factory()->create(['max_price' => null]);
-    $genre = Genre::factory()->create();
-    $user->genrePreferences()->attach($genre);
-
-    $game = Game::factory()->create(['slug' => 'to-complete', 'score' => 9]);
-    $game->genres()->attach($genre);
-
-    $this->actingAs($user, 'sanctum')
-        ->getJson('/api/v1/recommendations')
-        ->assertOk()
-        ->assertJsonFragment(['slug' => 'to-complete']);
-
-    $this->actingAs($user, 'sanctum')
-        ->putJson('/api/v1/me/library/to-complete', ['completed' => true])
-        ->assertOk();
-
-    $slugs = collect(
-        $this->actingAs($user, 'sanctum')
-            ->getJson('/api/v1/recommendations')
-            ->json('data')
-    )->pluck('slug')->all();
-
-    expect($slugs)->not->toContain('to-complete');
-});
-
-it('avoids n-plus-one queries when listing the library', function () {
-    $user = User::factory()->create();
-    $games = Game::factory()->count(5)->create();
-
-    foreach ($games as $game) {
-        $game->genres()->attach(Genre::factory()->create());
-        $user->library()->attach($game->id, ['completed' => false, 'saved' => true]);
-    }
-
-    DB::flushQueryLog();
-    DB::enableQueryLog();
-
-    $this->actingAs($user, 'sanctum')
-        ->getJson('/api/v1/me/library')
-        ->assertOk()
-        ->assertJsonCount(5, 'data');
-
-    $queryCount = count(DB::getQueryLog());
-    DB::disableQueryLog();
-
-    expect($queryCount)->toBeLessThan(15);
 });

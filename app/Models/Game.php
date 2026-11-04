@@ -123,11 +123,8 @@ class Game extends Model
     }
 
     /**
-     * Rank games by preference relevance.
-     *
-     * Relevance is how many of the given preferred genres and modes the game matches.
-     * Only games with relevance greater than zero are kept. Callers should still apply
-     * orderByScoreDesc() so ties break by catalog score (nulls last) then id desc.
+     * Keep games matching at least one preferred genre or mode, most matches first.
+     * Callers add orderByScoreDesc() to break ties.
      *
      * @param  Builder<Game>  $query
      * @param  array<int>  $genreIds
