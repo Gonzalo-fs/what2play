@@ -17,15 +17,19 @@ class LibraryController extends Controller
     {
         $filters = $request->validated();
 
-        $games = $request->user()
+        $query = $request->user()
             ->library()
-            ->with(['developer', 'genres', 'modes'])
-            ->when(array_key_exists('completed', $filters), function ($query) use ($filters): void {
-                $query->filterByLibraryCompleted((bool) $filters['completed']);
-            })
-            ->when(array_key_exists('saved', $filters), function ($query) use ($filters): void {
-                $query->filterByLibrarySaved((bool) $filters['saved']);
-            })
+            ->with(['developer', 'genres', 'modes']);
+
+        if (array_key_exists('completed', $filters)) {
+            $query->wherePivot('completed', (int) filter_var($filters['completed'], FILTER_VALIDATE_BOOLEAN));
+        }
+
+        if (array_key_exists('saved', $filters)) {
+            $query->wherePivot('saved', (int) filter_var($filters['saved'], FILTER_VALIDATE_BOOLEAN));
+        }
+
+        $games = $query
             ->orderByPivot('updated_at', 'desc')
             ->paginate();
 
@@ -37,20 +41,19 @@ class LibraryController extends Controller
         $user = $request->user();
         $validated = $request->validated();
 
-        $current = $user->library()->where('games.id', $game->id)->first();
+        $inLibrary = $user->library()->where('games.id', $game->id)->exists();
 
-        $pivot = [
-            'completed' => array_key_exists('completed', $validated)
-                ? (bool) $validated['completed']
-                : (bool) ($current?->pivot->completed ?? false),
-            'saved' => array_key_exists('saved', $validated)
-                ? (bool) $validated['saved']
-                : (bool) ($current?->pivot->saved ?? true),
-        ];
-
-        $user->library()->syncWithoutDetaching([
-            $game->id => $pivot,
-        ]);
+        if ($inLibrary) {
+            $flags = array_intersect_key($validated, array_flip(['completed', 'saved']));
+            if ($flags !== []) {
+                $user->library()->updateExistingPivot($game->id, $flags);
+            }
+        } else {
+            $user->library()->attach($game->id, [
+                'completed' => $validated['completed'] ?? false,
+                'saved' => $validated['saved'] ?? true,
+            ]);
+        }
 
         $libraryGame = $user->library()
             ->with(['developer', 'genres', 'modes'])

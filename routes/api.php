@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Api\V1\Admin\AdminGameController;
 use App\Http\Controllers\Api\V1\AuthController;
 use App\Http\Controllers\Api\V1\GameController;
 use App\Http\Controllers\Api\V1\LibraryController;
@@ -21,6 +22,13 @@ Route::prefix('v1')->group(function (): void {
         Route::put('me/library/{game}', [LibraryController::class, 'update']);
         Route::delete('me/library/{game}', [LibraryController::class, 'destroy']);
         Route::get('recommendations', [RecommendationController::class, 'index']);
+
+        Route::prefix('admin')->group(function (): void {
+            Route::post('games', [AdminGameController::class, 'store']);
+            Route::put('games/{game}', [AdminGameController::class, 'update']);
+            Route::delete('games/{game}', [AdminGameController::class, 'destroy']);
+            Route::post('games/{game}/image', [AdminGameController::class, 'updateImage']);
+        });
     });
 
     Route::get('games', [GameController::class, 'index']);

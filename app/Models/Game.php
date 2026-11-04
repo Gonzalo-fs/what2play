@@ -123,7 +123,11 @@ class Game extends Model
     }
 
     /**
-     * Adds match counts for preferred genres/modes, keeps only games with relevance > 0, orders by relevance.
+     * Rank games by preference relevance.
+     *
+     * Relevance is how many of the given preferred genres and modes the game matches.
+     * Only games with relevance greater than zero are kept. Callers should still apply
+     * orderByScoreDesc() so ties break by catalog score (nulls last) then id desc.
      *
      * @param  Builder<Game>  $query
      * @param  array<int>  $genreIds
@@ -135,59 +139,49 @@ class Game extends Model
         $genreIds = array_values(array_unique(array_map('intval', $genreIds)));
         $modeIds = array_values(array_unique(array_map('intval', $modeIds)));
 
+        $withCount = [];
+        $sumParts = [];
+
+        if ($genreIds !== []) {
+            $withCount['genres as matching_genres_count'] = function (Builder $genresQuery) use ($genreIds): void {
+                $genresQuery->whereIn('genres.id', $genreIds);
+            };
+            $sumParts[] = 'matching_genres_count';
+        }
+
+        if ($modeIds !== []) {
+            $withCount['modes as matching_modes_count'] = function (Builder $modesQuery) use ($modeIds): void {
+                $modesQuery->whereIn('modes.id', $modeIds);
+            };
+            $sumParts[] = 'matching_modes_count';
+        }
+
+        $relevanceSum = implode(' + ', $sumParts);
+
         return $query
-            ->withCount([
-                'genres as matching_genres_count' => function (Builder $genresQuery) use ($genreIds): void {
-                    if ($genreIds === []) {
-                        $genresQuery->whereRaw('0 = 1');
-
-                        return;
-                    }
-
-                    $genresQuery->whereIn('genres.id', $genreIds);
-                },
-                'modes as matching_modes_count' => function (Builder $modesQuery) use ($modeIds): void {
-                    if ($modeIds === []) {
-                        $modesQuery->whereRaw('0 = 1');
-
-                        return;
-                    }
-
-                    $modesQuery->whereIn('modes.id', $modeIds);
-                },
-            ])
-            ->where(function (Builder $relevanceQuery) use ($genreIds, $modeIds): void {
-                if ($genreIds !== []) {
-                    $relevanceQuery->orWhereHas('genres', function (Builder $genresQuery) use ($genreIds): void {
-                        $genresQuery->whereIn('genres.id', $genreIds);
-                    });
-                }
-
-                if ($modeIds !== []) {
-                    $relevanceQuery->orWhereHas('modes', function (Builder $modesQuery) use ($modeIds): void {
-                        $modesQuery->whereIn('modes.id', $modeIds);
-                    });
-                }
-            })
-            ->orderByRaw('(matching_genres_count + matching_modes_count) desc');
+            ->withCount($withCount)
+            ->groupBy('games.id')
+            ->havingRaw("({$relevanceSum}) > 0")
+            ->orderByRaw("({$relevanceSum}) desc");
     }
 
-    /**
-     * @param  Builder<Game>  $query
-     * @return Builder<Game>
-     */
-    public function scopeFilterByLibraryCompleted(Builder $query, bool $completed): Builder
+    public static function generateUniqueSlug(string $base, ?int $ignoreId = null): string
     {
-        return $query->where('game_user.completed', $completed);
-    }
+        $slug = $base !== '' ? $base : 'game';
+        $candidate = $slug;
+        $suffix = 2;
 
-    /**
-     * @param  Builder<Game>  $query
-     * @return Builder<Game>
-     */
-    public function scopeFilterByLibrarySaved(Builder $query, bool $saved): Builder
-    {
-        return $query->where('game_user.saved', $saved);
+        while (static::query()
+            ->when($ignoreId !== null, fn (Builder $query) => $query->where('id', '!=', $ignoreId))
+            ->where('slug', $candidate)
+            ->withTrashed()
+            ->exists()
+        ) {
+            $candidate = $slug.'-'.$suffix;
+            $suffix++;
+        }
+
+        return $candidate;
     }
 
     /**
