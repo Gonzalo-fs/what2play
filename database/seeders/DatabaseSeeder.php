@@ -3,6 +3,7 @@
 namespace Database\Seeders;
 
 use App\Models\Game;
+use App\Models\Genre;
 use App\Models\Mode;
 use App\Models\User;
 use Illuminate\Database\Console\Seeds\WithoutModelEvents;
@@ -17,6 +18,7 @@ class DatabaseSeeder extends Seeder
         $this->call([
             GenreSeeder::class,
             ModeSeeder::class,
+            DeveloperSeeder::class,
             GameSeeder::class,
         ]);
 
@@ -31,29 +33,21 @@ class DatabaseSeeder extends Seeder
             'max_price' => 30,
         ]);
 
-        $sampleGame = Game::query()
-            ->with(['genres', 'modes'])
-            ->whereHas('genres')
-            ->whereHas('modes')
-            ->where(function ($query): void {
-                $query->whereNull('price')->orWhere('price', '<=', 30);
-            })
-            ->inRandomOrder()
-            ->firstOrFail();
+        $genreIds = Genre::query()
+            ->whereIn('name', ['action and adventure', 'story based'])
+            ->pluck('id');
 
-        $user->genrePreferences()->attach($sampleGame->genres->take(2)->pluck('id'));
+        $soloModeId = Mode::query()->where('name', 'Solo')->value('id');
 
-        $singlePlayer = Mode::query()->where('name', 'Single player')->first();
-        $modeIds = $sampleGame->modes->pluck('id');
-        if ($singlePlayer && $modeIds->contains($singlePlayer->id)) {
-            $user->modePreferences()->attach($singlePlayer->id);
-        } else {
-            $user->modePreferences()->attach($modeIds->take(1));
-        }
+        $user->genrePreferences()->sync($genreIds);
+        $user->modePreferences()->sync([$soloModeId]);
 
-        $user->library()->attach(
-            Game::query()->whereKeyNot($sampleGame->id)->inRandomOrder()->limit(3)->pluck('id'),
-            ['saved' => true, 'completed' => false]
-        );
+        $hades = Game::query()->where('slug', 'hades')->firstOrFail();
+        $witcher = Game::query()->where('slug', 'the-witcher-3-wild-hunt')->firstOrFail();
+
+        $user->library()->sync([
+            $hades->id => ['saved' => true, 'completed' => true],
+            $witcher->id => ['saved' => true, 'completed' => false],
+        ]);
     }
 }

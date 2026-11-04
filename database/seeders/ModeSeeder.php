@@ -10,14 +10,16 @@ class ModeSeeder extends Seeder
     public function run(): void
     {
         $modes = [
-            'Single player' => 'Played alone.',
-            'Co-op' => 'Players cooperate towards a shared goal.',
-            'Multiplayer' => 'Players compete against each other online.',
-            'Local multiplayer' => 'Several players on the same device.',
+            'Solo' => 'Play alone in Singleplayer',
+            'With friends' => 'Play with your friends in co-op offline or online',
+            'Against other players' => 'Play against your friends or against people all around the world in multiplayer offline or online',
         ];
 
         foreach ($modes as $name => $description) {
-            Mode::firstOrCreate(['name' => $name], ['description' => $description]);
+            Mode::query()->updateOrCreate(
+                ['name' => $name],
+                ['description' => $description]
+            );
         }
     }
 }
