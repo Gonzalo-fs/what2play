@@ -131,7 +131,7 @@ class GameSeeder extends Seeder
             [
                 'title' => 'The Witcher 3: Wild Hunt',
                 'developer' => 'CD PROJEKT RED',
-                'description' => 'As war rages on throughout the Northern Realms, you take on the greatest contract of your life â€” tracking down the Child of Prophecy, a living weapon that can alter the shape of the world.',
+                'description' => 'As war rages on throughout the Northern Realms, you take on the greatest contract of your life — tracking down the Child of Prophecy, a living weapon that can alter the shape of the world.',
                 'release_year' => 2015,
                 'disclaimer' => null,
                 'video_url' => 'https://www.youtube.com/embed/XHrskkHf958',

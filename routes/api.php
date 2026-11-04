@@ -6,7 +6,6 @@ use App\Http\Controllers\Api\V1\GameController;
 use App\Http\Controllers\Api\V1\GenreController;
 use App\Http\Controllers\Api\V1\LibraryController;
 use App\Http\Controllers\Api\V1\ModeController;
-use App\Http\Controllers\Api\V1\PreferencesController;
 use App\Http\Controllers\Api\V1\RecommendationController;
 use App\Http\Controllers\Api\V1\UserController;
 use Illuminate\Support\Facades\Route;
@@ -20,8 +19,8 @@ Route::prefix('v1')->group(function (): void {
     Route::middleware('auth:sanctum')->group(function (): void {
         Route::post('auth/logout', [AuthController::class, 'logout']);
         Route::get('me', [UserController::class, 'show']);
-        Route::get('me/preferences', [PreferencesController::class, 'show']);
-        Route::put('me/preferences', [PreferencesController::class, 'update']);
+        Route::get('me/preferences', [UserController::class, 'preferences']);
+        Route::put('me/preferences', [UserController::class, 'updatePreferences']);
         Route::get('me/library', [LibraryController::class, 'index']);
         Route::put('me/library/{game}', [LibraryController::class, 'update']);
         Route::delete('me/library/{game}', [LibraryController::class, 'destroy']);
