@@ -1,58 +1,169 @@
-<p align="center"><a href="https://laravel.com" target="_blank"><img src="https://raw.githubusercontent.com/laravel/art/master/logo-lockup/5%20SVG/2%20CMYK/1%20Full%20Color/laravel-logolockup-cmyk-red.svg" width="400" alt="Laravel Logo"></a></p>
+# what2play - API
 
-<p align="center">
-<a href="https://github.com/laravel/framework/actions"><img src="https://github.com/laravel/framework/workflows/tests/badge.svg" alt="Build Status"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/dt/laravel/framework" alt="Total Downloads"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/v/laravel/framework" alt="Latest Stable Version"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/l/laravel/framework" alt="License"></a>
-</p>
+what2play is a REST API that recommends video games. Users keep a personal library, set their preferences (genres, game modes and a maximum price), and get a ranked list of games they have not completed yet.
 
-## About Laravel
+It is a rewrite of [what2play-legacy](https://github.com/Gonzalo-fs/what2play-legacy), the first project I built with Laravel. The idea, the domain and the data come from there. Everything else was rebuilt from scratch with what I have learned since. To see what changed and why, read the [what2play-legacy README](https://github.com/Gonzalo-fs/what2play-legacy#readme).
 
-Laravel is a web application framework with expressive, elegant syntax. We believe development must be an enjoyable and creative experience to be truly fulfilling. Laravel takes the pain out of development by easing common tasks used in many web projects, such as:
+Built with Laravel 13, PHP 8.3 and MySQL. This is an MVP, so it is API only and there is no front end in this repository. A front end built with Vue.js is planned for the future.
 
-- [Simple, fast routing engine](https://laravel.com/docs/routing).
-- [Powerful dependency injection container](https://laravel.com/docs/container).
-- Multiple back-ends for [session](https://laravel.com/docs/session) and [cache](https://laravel.com/docs/cache) storage.
-- Expressive, intuitive [database ORM](https://laravel.com/docs/eloquent).
-- Database agnostic [schema migrations](https://laravel.com/docs/migrations).
-- [Robust background job processing](https://laravel.com/docs/queues).
-- [Real-time event broadcasting](https://laravel.com/docs/broadcasting).
+## Features
 
-Laravel is accessible, powerful, and provides tools required for large, robust applications.
+- Public catalog of games with filters by genre, mode and maximum price.
+- Token authentication (Laravel Sanctum, Bearer tokens with expiration).
+- Personal library: save games and mark them as completed.
+- User preferences: favourite genres, favourite modes and a maximum price.
+- Recommendations ranked by how many preferred genres and modes a game matches, then by score.
+- Admin endpoints to create, update, delete (soft delete) and upload images for games.
 
-## Learning Laravel
+## Stack
 
-Laravel has the most extensive and thorough [documentation](https://laravel.com/docs) and video tutorial library of all modern web application frameworks, making it a breeze to get started with the framework.
+- PHP 8.3, Laravel 13, MySQL 8
+- Laravel Sanctum for API tokens
+- Pest for tests, Laravel Pint for code style, Larastan (PHPStan) for static analysis
+- GitHub Actions running Pint, Larastan and Pest on pushes to `main` and on pull requests
 
-In addition, [Laracasts](https://laracasts.com) contains thousands of video tutorials on a range of topics including Laravel, modern PHP, unit testing, and JavaScript. Boost your skills by digging into our comprehensive video library.
+## Getting started
 
-You can also watch bite-sized lessons with real-world projects on [Laravel Learn](https://laravel.com/learn), where you will be guided through building a Laravel application from scratch while learning PHP fundamentals.
-
-## Agentic Development
-
-Laravel's predictable structure and conventions make it ideal for AI coding agents like Claude Code, Cursor, and GitHub Copilot. Install [Laravel Boost](https://laravel.com/docs/ai) to supercharge your AI workflow:
+Requirements: PHP 8.3 with the usual Laravel extensions, Composer and MySQL.
 
 ```bash
-composer require laravel/boost --dev
-
-php artisan boost:install
+composer install
+cp .env.example .env
+php artisan key:generate
 ```
 
-Boost provides your agent 15+ tools and skills that help agents build Laravel applications while following best practices.
+Create an empty MySQL database called `what2play` (or change `DB_*` in `.env`), then:
 
-## Contributing
+```bash
+php artisan migrate --seed
+php artisan storage:link   # only needed to serve uploaded game images
+php artisan serve
+```
 
-Thank you for considering contributing to the Laravel framework! The contribution guide can be found in the [Laravel documentation](https://laravel.com/docs/contributions).
+The API is now available at `http://localhost:8000/api/v1`.
 
-## Code of Conduct
+### Demo data
 
-In order to ensure that the Laravel community is welcoming to all, please review and abide by the [Code of Conduct](https://laravel.com/docs/contributions#code-of-conduct).
+The seeders load a real catalog: 22 games with their developers, 13 genres and 3 game modes. The catalog seeders are idempotent, but the demo users are created with a factory, so use `php artisan migrate:fresh --seed` to reseed from scratch. Two demo users are created, both with the password `password`:
 
-## Security Vulnerabilities
+| User | Role | Notes |
+| --- | --- | --- |
+| `admin@example.com` | Admin | Can use the `/admin` endpoints. |
+| `test@example.com` | Regular user | Has preferences and a small library, so recommendations are ready to try. |
 
-If you discover a security vulnerability within Laravel, please send an e-mail to Taylor Otwell via [taylor@laravel.com](mailto:taylor@laravel.com). All security vulnerabilities will be promptly addressed.
+## Authentication
 
-## License
+Register or log in to get a token, then send it on every protected request:
 
-The Laravel framework is open-sourced software licensed under the [MIT license](https://opensource.org/licenses/MIT).
+```
+Authorization: Bearer <token>
+Accept: application/json
+```
+
+Tokens expire after `SANCTUM_TOKEN_EXPIRATION_MINUTES` (default 1440, one day). Register and login are throttled to 5 requests per minute.
+
+```bash
+curl -X POST http://localhost:8000/api/v1/auth/login \
+  -H "Accept: application/json" -H "Content-Type: application/json" \
+  -d '{"email":"test@example.com","password":"password"}'
+```
+
+```json
+{
+  "data": {
+    "token": "1|...",
+    "user": { "id": 2, "name": "...", "email": "test@example.com", "is_admin": false, "max_price": "30.00" }
+  }
+}
+```
+
+## Endpoints
+
+All routes are prefixed with `/api/v1`. Game lists (`/games`, `/me/library`, `/recommendations`) are paginated (15 per page, `?page=N`) and wrapped in `data`, `links` and `meta`. `/genres` and `/modes` return the full list inside `data`.
+
+### Public
+
+| Method | Path | Description |
+| --- | --- | --- |
+| POST | `/auth/register` | Create an account. Body: `name`, `email`, `password`, `password_confirmation` (min. 8). Returns 201 with a token. |
+| POST | `/auth/login` | Body: `email`, `password`. Returns a token, or 401 for wrong credentials. |
+| GET | `/games` | Paginated catalog, best score first. Filters: `genre_ids[]`, `mode_ids[]`, `max_price`. |
+| GET | `/games/{slug}` | A single game. |
+| GET | `/genres` | All genres. |
+| GET | `/modes` | All game modes. |
+
+Filter semantics: within `genre_ids[]` or `mode_ids[]` a game matches if it has any of the given ids. When both filters are sent, it must match both (any genre and any mode). `max_price` also keeps games without a price.
+
+```
+GET /api/v1/games?genre_ids[]=1&genre_ids[]=4&max_price=20
+```
+
+### Authenticated
+
+| Method | Path | Description |
+| --- | --- | --- |
+| POST | `/auth/logout` | Revokes the current token (204). |
+| GET | `/me` | The current user. |
+| GET | `/me/preferences` | Preferred genres, modes and maximum price. |
+| PUT | `/me/preferences` | Replaces them. Body: `genre_ids` (array), `mode_ids` (array), `max_price` (nullable number). |
+| GET | `/me/library` | The user's games, most recently updated first. Filters: `saved`, `completed` (booleans). |
+| PUT | `/me/library/{slug}` | Adds a game or updates its flags. Body: `saved`, `completed` (booleans, both optional). A new entry defaults to `saved: true`, `completed: false`. |
+| DELETE | `/me/library/{slug}` | Removes a game from the library (204). |
+| GET | `/recommendations` | Ranked recommendations for the user (see below). |
+
+### Admin
+
+Require a user with `is_admin = true`. Other users get 403.
+
+| Method | Path | Description |
+| --- | --- | --- |
+| POST | `/admin/games` | Creates a game (201). Required: `title`, `description`, `developer_id`. `genre_ids` and `mode_ids` must be sent, but they can be empty arrays. Optional: `slug` (generated from the title when omitted), `release_year`, `price`, `score` (0 to 10), `buy_url`, `video_url`, `difficulty`, `audience`, `graphics`, `requirements`, `requirements_specs`, `game_length_minutes`, `disclaimer`. |
+| PATCH | `/admin/games/{slug}` | Partial update with the same fields. |
+| DELETE | `/admin/games/{slug}` | Soft deletes the game (204). |
+| POST | `/admin/games/{slug}/image` | Multipart upload, field `image` (jpg, png or webp, max 2 MB). Stored on the `public` disk. |
+
+### Errors
+
+| Status | Meaning |
+| --- | --- |
+| 401 | Missing, invalid or expired token, or wrong login credentials. |
+| 403 | The user is not allowed to perform the action. |
+| 404 | The resource does not exist (soft-deleted games included). |
+| 422 | Validation failed. The body lists the errors per field. |
+| 429 | Too many register or login attempts. |
+
+API routes always answer in JSON, even without an `Accept` header.
+
+## How recommendations work
+
+`GameFilterService::filter()` builds the list from filters passed in as parameters. `RecommendationController` passes the user's preferences, and `GameController` passes the query string filters.
+
+Recommendations (default mode):
+
+1. Exclude games the user has already completed.
+2. Exclude games above the user's `max_price` (games without a price are kept).
+3. If the user has preferences, keep only games matching at least one preferred genre or mode and sort them by the number of matches.
+4. Break ties by score (games without score last).
+
+A user with no preferences gets the catalog ordered by score.
+
+Catalog (`GET /games`, strict mode): when both filters are sent, a game must match any of the genres and any of the modes. A filter that is not sent is ignored. Results are ordered by score.
+
+## Architecture
+
+- Controllers hold the use case of each endpoint. There is no Actions layer and no repository layer.
+- The only service, `GameFilterService`, holds the filtering and ranking logic shared by the catalog and the recommendations, so it does not live in the controllers. New services should only appear when the same logic is needed from more than one place.
+- Query filters are reusable Eloquent scopes on `Game`.
+- Validation lives in Form Requests, authorization in `GamePolicy`, and responses are shaped by API Resources.
+- Many-to-many relations use pivot tables: `game_genre`, `game_mode`, `game_user` (with `saved` and `completed`), `user_genre_preferences` and `user_mode_preferences`.
+- Games use soft deletes and are addressed by `slug` in URLs.
+
+## Testing and code quality
+
+```bash
+composer test      # Pest feature tests (in-memory SQLite)
+composer lint      # Laravel Pint
+composer analyse   # Larastan
+```
+
+The tests run on in-memory SQLite, so they do not touch your MySQL database. The same three checks run in GitHub Actions.
